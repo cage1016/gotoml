@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/cage1016/conf2toml"
 	"github.com/ota42y/gotoml/example"
 )
 
@@ -105,7 +106,7 @@ func TestGenerateError(t *testing.T) {
 	invalidData := "invalid"
 	input := strings.NewReader(invalidData)
 
-	b, err := Generate(input, "", "")
+	b, err := Generate(input, "", "", "")
 	if err == nil {
 		t.Error("if invalid toml data, should return error, but nil")
 	}
@@ -116,21 +117,22 @@ func TestGenerateError(t *testing.T) {
 }
 
 func TestGenerate(t *testing.T) {
-	structName := "Normal"
+	structName := "Example"
 	pkgName := "example"
+	pickName := ""
 
-	file, err := os.Open("example/normal.toml")
+	file, err := os.Open("example/uLinux.conf")
 	if err != nil {
 		t.Error(err)
 	}
 
-	b, err := ioutil.ReadFile("example/normal.go")
+	b, err := ioutil.ReadFile("example/uLinux.go")
 	if err != nil {
 		t.Error(err)
 	}
 	expect := string(b)
 
-	generateByte, err := Generate(file, structName, pkgName)
+	generateByte, err := Generate(conf2toml.NormalizationReader(file), structName, pkgName, pickName)
 	if err != nil {
 		t.Error(err)
 	}
@@ -189,7 +191,7 @@ func TestGetTypeName(t *testing.T) {
 name = "A-RISE"
 school = "Society of UTX"
 `
-	g := checkGetTypeName(input, "Group", "", t)
+	g := checkGetTypeName(input, "group", "", t)
 	_, ok := g.tomlData["Group"]
 	if !ok {
 		t.Errorf("getTypeName should save sub struct but not saved %v", g.tomlData)

@@ -7,19 +7,38 @@ import (
 	"io"
 	"reflect"
 	"sort"
+	"strings"
+	"unicode"
 
 	"github.com/BurntSushi/toml"
-	"strings"
 )
 
-func Generate(input io.Reader, structName string, pkgName string) ([]byte, error) {
+var packageName = ""
+
+func pickFilter(m map[string]interface{}, pick string) map[string]interface{} {
+	if pick == "" {
+		return m
+	}
+
+	for key, _ := range m {
+		if strings.Index(pick, key) < 0 {
+			delete(m, key)
+		}
+	}
+	return m
+}
+
+func Generate(input io.Reader, structName string, pkgName string, pick string) ([]byte, error) {
 	g := newGenerator()
+	packageName = pkgName
 
 	// read toml file
 	var tomlMap map[string]interface{}
 	if _, err := toml.DecodeReader(input, &tomlMap); err != nil {
 		return nil, err
 	}
+
+	tomlMap = pickFilter(tomlMap, pick)
 
 	g.tomlData[structName] = tomlMap
 	g.tomlParsed[structName] = false
@@ -111,7 +130,11 @@ func (g *generator) generateBody(w io.Writer) {
 }
 
 func (g *generator) parseStruct(w io.Writer, structName string, data map[string]interface{}) {
-	fmt.Fprintf(w, "type %s struct {\n", structName)
+	if packageName == strings.ToLower(structName) {
+		fmt.Fprintf(w, "type %s struct {\n", MakeFirstUpperCase(strings.ToLower(structName)))
+	} else {
+		fmt.Fprintf(w, "type %s struct {\n", strings.ToLower(structName))
+	}
 
 	// sort keys
 	mk := make([]string, len(data))
@@ -130,7 +153,7 @@ func (g *generator) parseStruct(w io.Writer, structName string, data map[string]
 		// save package name
 		g.usingPackages[pkgPath] = true
 
-		fmt.Fprintf(w, "%s %s `toml:\"%s\"`\n", keyTitle, typeName, key)
+		fmt.Fprintf(w, "%s %s `mapstructure:\"%s\"`\n", keyTitle, typeName, key)
 	}
 	fmt.Fprintf(w, "}\n\n")
 }
@@ -166,5 +189,12 @@ func (g *generator) addNewStrung(key string, m map[string]interface{}) string {
 	keyTitle := strings.Title(key)
 	g.tomlData[keyTitle] = m
 	g.tomlParsed[keyTitle] = false
-	return keyTitle
+	return strings.ToLower(keyTitle)
+}
+
+func MakeFirstUpperCase(s string) string {
+	for i, v := range s {
+		return string(unicode.ToUpper(v)) + s[i+1:]
+	}
+	return ""
 }
